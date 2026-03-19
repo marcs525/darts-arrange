@@ -17,6 +17,7 @@
         .res-main { border-color: var(--main); }
         .res-sub { border-color: var(--sub); }
         .res-miss { border-color: var(--miss); }
+        .res-correct { border-color: var(--correct); }
         .tag { font-weight: bold; font-size: 0.75rem; display: block; margin-bottom: 5px; color: #8b949e; }
         .path { font-size: 1.15rem; font-weight: bold; color: #fff; line-height: 1.4; }
         .action-btns { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
@@ -29,7 +30,7 @@
 <body>
 <div class="container">
     <h1>【育てるアレンジ表】</h1>
-    <div class="input-group"><label>残り点数</label><input type="number" id="sc" value="94"></div>
+    <div class="input-group"><label>残り点数</label><input type="number" id="sc" value="0"></div>
     <div class="input-group"><label>アウト形式</label><select id="md"><option value="D">ダブルアウト</option><option value="M">マスターアウト</option><option value="S">シングルアウト</option></select></div>
     <button id="start-btn" onclick="executeArrange()">アレンジ開始</button>
     <div id="out"></div>
@@ -41,13 +42,17 @@
 </div>
 
 <script>
+// 各種サイトから学習済みの基本定石
 const BASE_DB = { 
-    134:{D:["T20","T18","D10"],M:["BULL","BULL","D17"]}, 122:{D:["T18","T18","D7"]}, 94:{D:["T18","D20"],S:["S20","S14","D10"]}, 82:{D:["BULL","D16"],M:["BULL","D16"]}
+    134:{D:["T20","T18","D10"],M:["BULL","BULL","D17"]}, 122:{D:["T18","T18","D7"]}, 100:{D:["T20","D20"],M:["BULL","BULL"]}, 94:{D:["T18","D20"],S:["S20","S14","D10"]}, 82:{D:["BULL","D16"],M:["BULL","D16"]}, 60:{D:["S20","D20"]}
 };
-let brain = JSON.parse(localStorage.getItem('dartsBrain_Markus')) || {};
+let brain = JSON.parse(localStorage.getItem('dartsBrain_Markus_v4')) || {};
 
 function executeArrange() {
-    const target = parseInt(document.getElementById('sc').value);
+    const targetValue = document.getElementById('sc').value;
+    const target = parseInt(targetValue);
+    if(isNaN(target) || target <= 0) { document.getElementById('out').innerHTML = ""; return; }
+    
     const mode = document.getElementById('md').value;
     const outDiv = document.getElementById('out');
     const shots = [];
@@ -71,9 +76,9 @@ function executeArrange() {
     const scorePath = (p, tar) => {
         let s = 5000 - p.length * 1000;
         const pStr = p.map(x=>x.n).join(",");
+        if(brain[tar]?.[mode]?.custom?.some(cp => cp.map(x=>x.n).join(",") === pStr)) s += 100000; // 修正案最優先
         if(brain[tar]?.[mode]?.good?.includes(pStr)) s += 20000;
-        if(brain[tar]?.[mode]?.custom?.some(cp => cp.map(x=>x.n).join(",") === pStr)) s += 30000;
-        if(brain[tar]?.[mode]?.bad?.includes(pStr)) s -= 20000;
+        if(brain[tar]?.[mode]?.bad?.includes(pStr)) s -= 100000; // 除外案は最下位
         if(BASE_DB[tar]?.[mode]?.join(",") === pStr) s += 10000;
         p.forEach((d, i) => {
             if(d.t==='D' && [32,16,8,4,2].includes(d.v)) s += 500;
@@ -86,15 +91,16 @@ function executeArrange() {
     if(all.length === 0) { outDiv.innerHTML = "解析不能"; return; }
 
     const main = all[0];
-    let html = renderItem('推奨メイン', main, 'res-main', target);
-    const sub = all.find(x=>x[0].n !== main[0].n) || all[1];
+    let html = renderItem('推奨アレンジ（学習反映済み）', main, brain[target]?.[mode]?.custom?.some(cp=>cp.map(x=>x.n).join(",")===main.map(x=>x.n).join(",")) ? 'res-correct' : 'res-main', target);
+    
+    const sub = all.find(x=>x.map(d=>d.n).join(",") !== main.map(d=>d.n).join(",") && scorePath(x, target) > -50000) || null;
     if(sub) html += renderItem('サブ案', sub, 'res-sub', target);
 
     const first = main[0];
     if(first.t === 'T' || first.n === 'BULL') {
         const missV = first.n==='BULL'?25:first.r;
         let rem = target - missV;
-        let rec = solve(rem, 2).sort((a,b)=>scorePath(b, rem)-scoreArr(a, rem));
+        let rec = solve(rem, 2).sort((a,b)=>scorePath(b, rem)-scorePath(a, rem));
         if(rec.length > 0) html += `<div class="res-item res-miss"><span class="tag">リカバリ (1投目 S${missV}外れ時)</span>残り${rem}：<br><div class="path">${getDisp(rec[0], rem)}</div></div>`;
     }
     outDiv.innerHTML = html; showHistory();
@@ -115,25 +121,29 @@ function getDisp(p, tar) { let t = tar; return p.map(d=>{t-=d.v; return `${d.n}(
 function learn(t, p, type) {
     const m = document.getElementById('md').value;
     if(!brain[t]) brain[t]={}; if(!brain[t][m]) brain[t][m]={good:[],bad:[],custom:[]};
-    brain[t][m][type].push(p); localStorage.setItem('dartsBrain_Markus', JSON.stringify(brain));
-    executeArrange();
+    if(type === 'bad' && !brain[t][m].bad.includes(p)) brain[t][m].bad.push(p);
+    if(type === 'good' && !brain[t][m].good.includes(p)) brain[t][m].good.push(p);
+    localStorage.setItem('dartsBrain_Markus_v4', JSON.stringify(brain));
+    executeArrange(); // 即時反映
 }
 
 function custom(t) {
-    const pStr = prompt("秘伝ルートを入力（例: S14, T20, D10）"); if(!pStr) return;
+    const pStr = prompt("秘伝ルート（例: S14, T20, D10）"); if(!pStr) return;
     const m = document.getElementById('md').value;
-    const parsed = pStr.split(',').map(s=>({n:s.trim(), v:0}));
+    const parsed = pStr.split(',').map(s=>{ const n=s.trim(); let v=0; if(n.includes('T'))v=parseInt(n.substring(1))*3; else if(n.includes('D'))v=parseInt(n.substring(1))*2; else if(n==='BULL')v=50; else v=parseInt(n.substring(1)); return {n,v}; });
+    if(parsed.reduce((a,b)=>a+b.v, 0) != t) { alert("計算が合いません"); return; }
     if(!brain[t]) brain[t]={}; if(!brain[t][m]) brain[t][m]={good:[],bad:[],custom:[]};
-    brain[t][m].custom.push(parsed); localStorage.setItem('dartsBrain_Markus', JSON.stringify(brain));
-    executeArrange();
+    brain[t][m].custom.push(parsed);
+    localStorage.setItem('dartsBrain_Markus_v4', JSON.stringify(brain));
+    executeArrange(); // 即時反映
 }
 
-function resetBrain() { if(confirm("学習履歴を全て消去しますか？")) { localStorage.removeItem('dartsBrain_Markus'); location.reload(); } }
+function resetBrain() { if(confirm("学習履歴を全て消去しますか？")) { localStorage.removeItem('dartsBrain_Markus_v4'); location.reload(); } }
 
 function showHistory() {
     const h = document.getElementById('history');
     const keys = Object.keys(brain);
-    h.innerHTML = keys.length ? `[${keys.length}件の点数を学習済み]` : "履歴なし";
+    h.innerHTML = keys.length ? `[${keys.length}件の点数を個別に学習済み]` : "履歴なし";
 }
 </script>
 </body>
