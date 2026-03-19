@@ -3,59 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>【育てるアレンジ表】 v3.2</title>
+    <title>【育てるアレンジ表】 v3.3</title>
     <style>
         :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --accent: #58a6ff; --main: #3fb950; --sub: #d29922; --miss: #f85149; --correct: #8a63d2; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
-        .container { max-width: 600px; margin: 0 auto; background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #30363d; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .container { max-width: 600px; margin: 0 auto; background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
         h1 { font-size: 1.4rem; color: var(--accent); text-align: center; border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 20px; }
         .input-group { margin-bottom: 15px; }
         label { display: block; font-size: 0.8rem; color: #8b949e; margin-bottom: 4px; }
-        input, select { width: 100%; padding: 12px; background: var(--bg); border: 1px solid #30363d; border-radius: 6px; color: var(--text); font-size: 1rem; box-sizing: border-box; }
+        input, select, textarea { width: 100%; padding: 12px; background: var(--bg); border: 1px solid #30363d; border-radius: 6px; color: var(--text); font-size: 1rem; box-sizing: border-box; }
         button { width: 100%; padding: 15px; background: var(--main); color: white; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .res-item { padding: 15px; border-radius: 8px; margin-bottom: 15px; background: var(--bg); border-left: 5px solid; position: relative; }
         .res-main { border-color: var(--main); }
-        .res-sub { border-color: var(--sub); }
-        .res-miss { border-color: var(--miss); }
         .tag { font-weight: bold; font-size: 0.75rem; display: block; margin-bottom: 5px; color: #8b949e; }
         .path { font-size: 1.15rem; font-weight: bold; color: #fff; line-height: 1.4; }
-        .action-btns { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
-        .btn-sm { padding: 6px 12px; font-size: 0.8rem; background: #30363d; border: none; border-radius: 4px; color: #fff; cursor: pointer; }
-        .btn-sync { background: var(--correct); }
-        .learned-area { margin-top: 25px; border-top: 1px dotted #30363d; padding-top: 15px; }
-        .learned-title { font-size: 0.9rem; color: var(--accent); margin-bottom: 8px; }
+        .sync-area { margin-top: 25px; border-top: 2px solid var(--accent); padding-top: 15px; }
+        .sync-box { font-family: monospace; font-size: 0.7rem; height: 80px; margin: 10px 0; background: #000; color: #0f0; border: 1px solid var(--accent); padding: 5px; }
+        .action-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .btn-sm { flex: 1; padding: 10px; font-size: 0.8rem; background: #30363d; border: none; border-radius: 4px; color: #fff; cursor: pointer; min-width: 100px; }
         b { color: var(--accent); }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>【育てるアレンジ表】 v3.2</h1>
+    <h1>【育てるアレンジ表】 v3.3</h1>
     <div class="input-group"><label>残り点数</label><input type="number" id="sc" value="94"></div>
     <div class="input-group"><label>アウト形式</label><select id="md"><option value="D">ダブルアウト</option><option value="M">マスターアウト</option><option value="S">シングルアウト</option></select></div>
     <button onclick="calc()">並列演算開始</button>
     <div id="out"></div>
-    <div class="learned-area">
-        <div class="learned-title">学習済み知見の即時同期</div>
+
+    <div class="sync-area">
+        <div class="tag">🧠 知見同期・データ転送（脳の共有）</div>
+        <textarea id="syncData" class="sync-box" placeholder="ここに知見コードが表示、または貼り付けされます"></textarea>
         <div class="action-btns">
-            <button class="btn-sm btn-sync" onclick="exportBrain()">🧠 書き出し</button>
-            <button class="btn-sm btn-sync" onclick="importBrain()">📥 取り込み</button>
-            <button class="btn-sm" style="background:#f85149" onclick="resetBrain()">⚠️ 初期化</button>
+            <button class="btn-sm" style="background:var(--correct)" onclick="exportBrain()">🧠 知見を書き出す</button>
+            <button class="btn-sm" style="background:var(--main)" onclick="importBrain()">📥 知見を取り込む</button>
+            <button class="btn-sm" style="background:var(--miss)" onclick="resetBrain()">⚠️ 初期化</button>
         </div>
-        <div id="history" style="font-size:0.75rem; color:#8b949e; margin-top:10px;">学習履歴なし</div>
     </div>
 </div>
 
 <script>
-// 解析サイトに基づく基本定石（適宜拡張）
-const DB = { 
-    134:{D:["T20","T18","D10"],M:["BULL","BULL","D17"]},
-    122:{D:["T18","T18","D7"]},
-    94:{D:["T18","D20"],S:["S20","S14","D10"]},
-    82:{D:["BULL","D16"],M:["BULL","D16"]},
-    100:{D:["T20","D20"],M:["BULL","BULL"]},
-    60:{D:["S20","D20"],S:["S20","S20","S20"]}
-};
-let brain = JSON.parse(localStorage.getItem('dartsBrain_v3_2')) || {};
+let brain = JSON.parse(localStorage.getItem('dartsBrain_v3_3')) || {};
+const DB = { 134:{D:["T20","T18","D10"],M:["BULL","BULL","D17"]}, 94:{D:["T18","D20"],S:["S20","S14","D10"]} };
 
 function calc() {
     const target = parseInt(document.getElementById('sc').value);
@@ -66,29 +56,27 @@ function calc() {
     shots.push({n:'BULL',v:50,t:'B',r:25});
 
     function solve(rem, max) {
-        let results = [];
+        let res = [];
         const find = (c, p) => {
             if(p.length > max || c < 0) return;
             if(c === 0) {
                 const l = p[p.length-1];
-                if((mode==='D'&&(l.t==='D'||l.n==='BULL'))||(mode==='M'&&(l.t==='D'||l.t==='T'||l.n==='BULL'))||mode==='S') results.push([...p]);
+                if((mode==='D'&&(l.t==='D'||l.n==='BULL'))||(mode==='M'&&(l.t==='D'||l.t==='T'||l.n==='BULL'))||mode==='S') res.push([...p]);
                 return;
             }
             for(let s of shots) if(c >= s.v) find(c-s.v, [...p, s]);
         };
-        find(rem, []); return results;
+        find(rem, []); return res;
     }
 
     const scoreArr = (p, tar) => {
-        let s = 5000 - p.length * 1000; // 本数が少ないほど高評価
+        let s = 5000 - p.length * 1000;
         const pStr = p.map(x=>x.n).join(",");
         if(brain[tar]?.[mode]?.good?.includes(pStr)) s += 20000;
         if(brain[tar]?.[mode]?.custom?.some(cp => cp.map(x=>x.n).join(",") === pStr)) s += 30000;
-        if(brain[tar]?.[mode]?.bad?.includes(pStr)) s -= 20000;
         if(DB[tar]?.[mode]?.join(",") === pStr) s += 10000;
         p.forEach((d, i) => {
             if(d.t==='D' && [32,16,8,4,2].includes(d.v)) s += 500;
-            if(d.n==='BULL' && mode==='M') s += 1000;
             if(d.t==='S' && i < p.length-1) s += 200;
         });
         return s;
@@ -96,81 +84,46 @@ function calc() {
 
     let all = solve(target, 3).sort((a,b)=>scoreArr(b, target)-scoreArr(a, target));
     if(all.length === 0) { outDiv.innerHTML = "解析不能"; return; }
-
-    const main = all[0];
-    let html = renderItem('推奨メイン（2本上がり優先・学習反映）', main, 'res-main', target);
-    const sub = all.find(x=>x[0].n !== main[0].n) || all[1];
-    if(sub) html += renderItem('サブ案（安定・セオリー）', sub, 'res-sub', target);
-
-    // リカバリ演算
-    const first = main[0];
-    if(first.t === 'T' || first.n === 'BULL') {
-        const missV = first.n==='BULL'?25:first.r;
-        let rem = target - missV;
-        let rec = solve(rem, 2).sort((a,b)=>scoreArr(b, rem)-scoreArr(a, rem));
-        if(rec.length > 0) html += `<div class="res-item res-miss"><span class="tag">RECOVERY (1st: S${missV})</span>残り${rem}：<br><div class="path">${getDisp(rec[0], rem)}</div></div>`;
-        else {
-            let setup = shots.filter(s=>s.t!=='D').sort((a,b)=>{
-                const rA=rem-a.v, rB=rem-b.v;
-                return ([40,32,24,20,16].includes(rB)?200:0) - ([40,32,24,20,16].includes(rA)?200:0);
-            })[0];
-            html += `<div class="res-item res-miss"><span class="tag">SETUP (1st: S${missV})</span>残り${rem}調整：<br><div class="path">${setup.n}(${rem-setup.v}) → 次R D${(rem-setup.v)/2}へ</div></div>`;
-        }
-    }
-    outDiv.innerHTML = html; showHist();
+    outDiv.innerHTML = `<div class="res-item res-main"><span class="tag">推奨案</span><div class="path">${all[0].map(d=>{target-=d.v; return `${d.n}(${target})`;}).join(" → ")}</div><div class="action-btns"><button class="btn-sm" onclick="learn('${document.getElementById('sc').value}','${all[0].map(x=>x.n).join(",")}', 'good')">👍 正解</button><button class="btn-sm" onclick="custom('${document.getElementById('sc').value}')">✍️ 秘伝</button></div></div>`;
 }
-
-function renderItem(title, p, cls, tar) {
-    const pStr = p.map(x=>x.n).join(",");
-    return `<div class="res-item ${cls}"><span class="tag">${title}</span><div class="path">${getDisp(p, tar)}</div>
-    <div class="action-btns">
-        <button class="btn-sm" onclick="learn('${tar}','${pStr}','good')">👍 正解</button>
-        <button class="btn-sm" onclick="learn('${tar}','${pStr}','bad')">👎 除外</button>
-        <button class="btn-sm" onclick="custom('${tar}')">✍️ 秘伝</button>
-    </div></div>`;
-}
-
-function getDisp(p, tar) { let t = tar; return p.map(d=>{t-=d.v; return `${d.n}(${t})`;}).join(" → "); }
 
 function learn(t, p, type) {
     const m = document.getElementById('md').value;
     if(!brain[t]) brain[t]={}; if(!brain[t][m]) brain[t][m]={good:[],bad:[],custom:[]};
-    brain[t][m][type].push(p); localStorage.setItem('dartsBrain_v3_2', JSON.stringify(brain));
-    calc();
+    brain[t][m][type].push(p); localStorage.setItem('dartsBrain_v3_3', JSON.stringify(brain));
+    alert("学習完了"); calc();
 }
 
 function custom(t) {
-    const pStr = prompt("秘伝ルートを入力（例: S14, T20, D10）"); if(!pStr) return;
+    const pStr = prompt("秘伝ルート（例: S14, T20, D10）"); if(!pStr) return;
     const m = document.getElementById('md').value;
-    const parsed = pStr.split(',').map(s=> { const n=s.trim(); let v=0; if(n.includes('T'))v=parseInt(n.substring(1))*3; else if(n.includes('D'))v=parseInt(n.substring(1))*2; else if(n==='BULL')v=50; else v=parseInt(n.substring(1)||n); return {n,v}; });
     if(!brain[t]) brain[t]={}; if(!brain[t][m]) brain[t][m]={good:[],bad:[],custom:[]};
-    brain[t][m].custom.push(parsed); localStorage.setItem('dartsBrain_v3_2', JSON.stringify(brain));
+    brain[t][m].custom.push(pStr.split(',').map(s=>({n:s.trim(), v:0}))); // 簡易保存
+    localStorage.setItem('dartsBrain_v3_3', JSON.stringify(brain));
     calc();
 }
 
+// --- 同期機能の改善 ---
 function exportBrain() {
     const data = btoa(unescape(encodeURIComponent(JSON.stringify(brain))));
-    prompt("知見コード：", data);
+    const box = document.getElementById('syncData');
+    box.value = data;
+    box.select();
+    alert("知見コードを下の黒枠に生成しました。\n全選択してコピーし、仲間に送ってください。");
 }
 
 function importBrain() {
-    const data = prompt("コードを貼り付け："); if(!data) return;
-    try { brain = JSON.parse(decodeURIComponent(escape(atob(data)))); localStorage.setItem('dartsBrain_v3_2', JSON.stringify(brain)); location.reload(); } catch(e) { alert("失敗"); }
+    const data = document.getElementById('syncData').value;
+    if(!data) { alert("コードを黒枠に貼り付けてください。"); return; }
+    try {
+        brain = JSON.parse(decodeURIComponent(escape(atob(data.trim()))));
+        localStorage.setItem('dartsBrain_v3_3', JSON.stringify(brain));
+        alert("仲間の知見を取り込みました！");
+        location.reload();
+    } catch(e) { alert("コードが正しくありません。"); }
 }
 
-function resetBrain() { if(confirm("初期化？")) { localStorage.removeItem('dartsBrain_v3_2'); location.reload(); } }
-
-function showHist() {
-    const h = document.getElementById('history');
-    const logs = [];
-    Object.keys(brain).forEach(t => {
-        Object.keys(brain[t]).forEach(m => {
-            if(brain[t][m].custom?.length) logs.push(`[${t}点:${m}アウト] 秘伝あり`);
-            else if(brain[t][m].good?.length) logs.push(`[${t}点] 学習済み`);
-        });
-    });
-    h.innerHTML = logs.length ? logs.join("<br>") : "履歴なし";
-}
+function resetBrain() { if(confirm("学習履歴を全て消去しますか？")) { localStorage.removeItem('dartsBrain_v3_3'); location.reload(); } }
 </script>
 </body>
 </html>
